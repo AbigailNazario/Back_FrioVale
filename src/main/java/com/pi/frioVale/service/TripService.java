@@ -10,12 +10,14 @@ import com.pi.frioVale.dto.TripRequest;
 import com.pi.frioVale.dto.TripResponse;
 import com.pi.frioVale.exception.BusinessRuleException;
 import com.pi.frioVale.exception.ResourceNotFoundException;
+import com.pi.frioVale.security.CurrentUser;
 import com.pi.frioVale.repository.ContainerRepository;
 import com.pi.frioVale.repository.FruitRepository;
 import com.pi.frioVale.repository.TripRepository;
 import com.pi.frioVale.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class TripService {
     private final UserRepository userRepository;
     private final FruitRepository fruitRepository;
     private final Clock clock;
+    private final CurrentUser currentUser;
 
     /** Cadastra a viagem e, por padrão, já a inicia (IN_TRANSIT). */
     @Transactional
@@ -83,9 +86,30 @@ public class TripService {
         return TripResponse.from(trip);
     }
 
+    /** Gestor ve todas as viagens em andamento; motorista, apenas as dele. */
     @Transactional(readOnly = true)
     public List<TripResponse> findActive() {
-        return tripRepository.findByStatus(TripStatus.IN_TRANSIT).stream().map(TripResponse::from).toList();
+        List<Trip> trips = currentUser.isCompany()
+                ? tripRepository.findByStatus(TripStatus.IN_TRANSIT)
+                : tripRepository.findByStatusAndDriverId(TripStatus.IN_TRANSIT, currentUser.id());
+        return trips.stream().map(TripResponse::from).toList();
+    }
+
+    /** Lanca 404 se a viagem nao existe e 403 se o motorista logado nao e o dono dela. */
+    @Transactional(readOnly = true)
+    public void assertCanView(Long tripId) {
+        if (!tripRepository.existsById(tripId)) {
+            throw new ResourceNotFoundException("Viagem", tripId);
+        }
+        if (!currentUser.isCompany() && !tripRepository.existsByIdAndDriverId(tripId, currentUser.id())) {
+            throw new AccessDeniedException("Voce nao tem acesso a esta viagem");
+        }
+    }
+
+    /** Versao sem contexto HTTP (usada pelo WebSocket). */
+    @Transactional(readOnly = true)
+    public boolean canAccessTrip(Long tripId, Long userId, boolean company) {
+        return company ? tripRepository.existsById(tripId) : tripRepository.existsByIdAndDriverId(tripId, userId);
     }
 
     /** Viagens ativas com container/fruta/motorista já carregados (uso do agendador, fora de transação). */

@@ -11,10 +11,10 @@ import java.time.ZoneId;
 
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties(ThingSpeakProperties.class)
+@EnableConfigurationProperties({ThingSpeakProperties.class, JwtProperties.class, BootstrapProperties.class})
 public class AppConfig {
 
-    /** Relógio único da aplicação (fuso configurável), facilita testes e mantém datas consistentes. */
+    /** Relogio unico da aplicacao (fuso configuravel), facilita testes e mantem datas consistentes. */
     @Bean
     public Clock clock(@Value("${friovale.timezone:America/Recife}") String zone) {
         return Clock.system(ZoneId.of(zone));

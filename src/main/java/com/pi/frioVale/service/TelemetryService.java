@@ -38,6 +38,7 @@ public class TelemetryService {
     private final TripRepository tripRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
+    private final TripService tripService;
 
     /**
      * Grava uma leitura do ThingSpeak, valida a temperatura contra a faixa da fruta da viagem
@@ -97,21 +98,15 @@ public class TelemetryService {
 
     @Transactional(readOnly = true)
     public List<TelemetryResponse> getHistory(Long tripId) {
-        assertTripExists(tripId);
+        tripService.assertCanView(tripId);
         return telemetryRepository.findByTripIdOrderByTimestampAsc(tripId).stream()
                 .map(TelemetryResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
     public List<AlertResponse> getAlerts(Long tripId) {
-        assertTripExists(tripId);
+        tripService.assertCanView(tripId);
         return alertRepository.findByTripId(tripId).stream().map(AlertResponse::from).toList();
-    }
-
-    private void assertTripExists(Long tripId) {
-        if (!tripRepository.existsById(tripId)) {
-            throw new ResourceNotFoundException("Viagem", tripId);
-        }
     }
 
     private String buildMessage(Trip trip, double temp, boolean belowMin) {

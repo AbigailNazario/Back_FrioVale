@@ -14,7 +14,12 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByStatus(TripStatus status);
 
     @EntityGraph(attributePaths = {"container", "driver", "fruit"})
+    List<Trip> findByStatusAndDriverId(TripStatus status, Long driverId);
+
+    @EntityGraph(attributePaths = {"container", "driver", "fruit"})
     Optional<Trip> findDetailedById(Long id);
 
     boolean existsByContainerIdAndStatus(Long containerId, TripStatus status);
+
+    boolean existsByIdAndDriverId(Long id, Long driverId);
 }

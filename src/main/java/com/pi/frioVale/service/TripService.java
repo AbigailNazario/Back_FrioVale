@@ -10,10 +10,12 @@ import com.pi.frioVale.domain.enums.TripStatus;
 import com.pi.frioVale.dto.TripMonitorResponse;
 import com.pi.frioVale.dto.TripRequest;
 import com.pi.frioVale.dto.TripResponse;
+import com.pi.frioVale.dto.TripUpdateRequest;
 import com.pi.frioVale.exception.BusinessRuleException;
 import com.pi.frioVale.exception.ResourceNotFoundException;
 import com.pi.frioVale.repository.ContainerRepository;
 import com.pi.frioVale.repository.FruitRepository;
+import com.pi.frioVale.repository.IaPredictionRepository;
 import com.pi.frioVale.repository.TelemetryRepository;
 import com.pi.frioVale.repository.TripRepository;
 import com.pi.frioVale.repository.UserRepository;
@@ -36,6 +38,7 @@ public class TripService {
     private final UserRepository userRepository;
     private final FruitRepository fruitRepository;
     private final TelemetryRepository telemetryRepository;
+    private final IaPredictionRepository iaPredictionRepository;
     private final Clock clock;
 
     /** Cadastra a viagem e, por padrão, já a inicia (IN_TRANSIT). */
@@ -76,6 +79,81 @@ public class TripService {
         }
         applyStart(trip);
         return TripResponse.from(trip);
+    }
+
+    /** Altera o status da viagem, respeitando as regras de transição. */
+    @Transactional
+    public TripResponse updateStatus(Long id, TripStatus status) {
+        return updateTrip(id, new TripUpdateRequest(status, null, null, null, null, null, null));
+    }
+
+    /**
+     * Atualiza campos da viagem e o status, respeitando as regras de transição.
+     * Campos omitidos (null) mantêm o valor atual.
+     */
+    @Transactional
+    public TripResponse updateTrip(Long id, TripUpdateRequest request) {
+        Trip trip = getTrip(id);
+        TripStatus current = trip.getStatus();
+        TripStatus next = request.status();
+
+        if (current == next) {
+            // ainda assim permite atualizar outros campos sem mudar o status
+        } else {
+            switch (next) {
+                case IN_TRANSIT -> {
+                    if (current != TripStatus.PLANNED) {
+                        throw new BusinessRuleException("Só é possível iniciar viagens PLANNED (status atual: " + current + ")");
+                    }
+                    applyStart(trip);
+                }
+                case COMPLETED -> {
+                    if (current != TripStatus.IN_TRANSIT) {
+                        throw new BusinessRuleException("Só é possível finalizar viagens IN_TRANSIT (status atual: " + current + ")");
+                    }
+                    trip.setStatus(TripStatus.COMPLETED);
+                    trip.setEndDate(LocalDateTime.now(clock));
+                }
+                case PLANNED -> {
+                    trip.setStatus(TripStatus.PLANNED);
+                    trip.setStartDate(null);
+                    trip.setEndDate(null);
+                }
+            }
+        }
+
+        // Atualiza outros campos quando fornecidos
+        if (request.containerId() != null) {
+            Container container = containerRepository.findById(request.containerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Contêiner", request.containerId()));
+            trip.setContainer(container);
+        }
+        if (request.driverId() != null) {
+            User driver = userRepository.findById(request.driverId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuário", request.driverId()));
+            if (driver.getRole() != Role.ROLE_DRIVER) {
+                throw new BusinessRuleException("O usuário informado não é um motorista", HttpStatus.BAD_REQUEST);
+            }
+            trip.setDriver(driver);
+        }
+        if (request.fruitId() != null) {
+            Fruit fruit = fruitRepository.findById(request.fruitId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Fruta", request.fruitId()));
+            trip.setFruit(fruit);
+        }
+        if (request.origin() != null) {
+            trip.setOrigin(normalize(request.origin()));
+        }
+        if (request.destination() != null) {
+            trip.setDestination(normalize(request.destination()));
+        }
+
+        // Se status for IN_TRANSIT e startNow explicitamente true, garante startDate
+        if (next == TripStatus.IN_TRANSIT && Boolean.TRUE.equals(request.startNow()) && trip.getStartDate() == null) {
+            trip.setStartDate(LocalDateTime.now(clock));
+        }
+
+        return TripResponse.from(tripRepository.save(trip));
     }
 
     /** IN_TRANSIT -> COMPLETED */
@@ -139,9 +217,32 @@ public class TripService {
                 ? null
                 : (int) Math.round(readingsInRange * 100.0 / readings);
         Boolean inRange = null;
+        Boolean regrasAnomalia = null;
         if (latest != null && latest.getTemperature() != null) {
             double temperature = latest.getTemperature();
             inRange = temperature >= fruit.getMinTemp() && temperature <= fruit.getMaxTemp();
+            regrasAnomalia = !inRange;
+        }
+
+        // Buscar resultado da IA salvo para esta leitura (sem chamar a API novamente)
+        Boolean iaAnomalia = null;
+        String iaResultado = null;
+        String iaMensagem = null;
+        String iaPerfil = null;
+        Boolean iaDivergencia = null;
+        if (latest != null) {
+            var iaResult = iaPredictionRepository.findByTelemetryId(latest.getId());
+            if (iaResult.isPresent()) {
+                var r = iaResult.get();
+                iaAnomalia = r.getIaAnomalia();
+                iaResultado = r.getIaResultado();
+                iaMensagem = r.getIaMensagem();
+                iaPerfil = r.getIaPerfil();
+                // Divergencia: IA e regras discordam
+                if (regrasAnomalia != null && iaAnomalia != null) {
+                    iaDivergencia = !regrasAnomalia.equals(iaAnomalia);
+                }
+            }
         }
 
         return new TripMonitorResponse(
@@ -158,7 +259,9 @@ public class TripService {
                 latest == null ? null : latest.getLatitude(),
                 latest == null ? null : latest.getLongitude(),
                 latest == null ? null : latest.getTimestamp(),
-                inRange, readings, readingsInRange, inRangePercent);
+                inRange, readings, readingsInRange, inRangePercent,
+                iaAnomalia, iaResultado, iaMensagem, iaPerfil,
+                regrasAnomalia, iaDivergencia);
     }
 
     private Trip getTrip(Long id) {

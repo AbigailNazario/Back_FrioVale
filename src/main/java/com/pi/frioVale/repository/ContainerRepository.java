@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface ContainerRepository extends JpaRepository<Container, Long> {
     Optional<Container> findByCode(String code);
+    Optional<Container> findByThingSpeakChannelId(String thingSpeakChannelId);
 }

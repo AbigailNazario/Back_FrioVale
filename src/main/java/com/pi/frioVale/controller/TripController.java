@@ -5,6 +5,7 @@ import com.pi.frioVale.dto.TelemetryResponse;
 import com.pi.frioVale.dto.TripMonitorResponse;
 import com.pi.frioVale.dto.TripRequest;
 import com.pi.frioVale.dto.TripResponse;
+import com.pi.frioVale.dto.TripUpdateRequest;
 import com.pi.frioVale.service.TelemetryService;
 import com.pi.frioVale.service.TripService;
 import jakarta.validation.Valid;
@@ -67,5 +68,17 @@ public class TripController {
     @PostMapping("/{id}/end")
     public TripResponse end(@PathVariable Long id) {
         return tripService.endTrip(id);
+    }
+
+    /** Altera o status da viagem (PLANNED / IN_TRANSIT / COMPLETED). */
+    @PutMapping("/{id}/status")
+    public TripResponse updateStatus(@PathVariable Long id, @Valid @RequestBody TripUpdateRequest request) {
+        return tripService.updateStatus(id, request.status());
+    }
+
+    /** Atualiza campos e status da viagem. */
+    @PutMapping("/{id}")
+    public TripResponse updateTrip(@PathVariable Long id, @Valid @RequestBody TripUpdateRequest request) {
+        return tripService.updateTrip(id, request);
     }
 }

@@ -33,6 +33,14 @@ public record TripMonitorResponse(
         Boolean inRange,
         long readings,
         long readingsInRange,
-        Integer inRangePercent
+        Integer inRangePercent,
+        // Resultados da IA (metrica de produto - deteccao de anomalia)
+        Boolean iaAnomalia,
+        String iaResultado,
+        String iaMensagem,
+        String iaPerfil,
+        // Resultado das regras fixas (separado da IA)
+        Boolean regrasAnomalia,
+        Boolean iaDivergencia
 ) {
 }

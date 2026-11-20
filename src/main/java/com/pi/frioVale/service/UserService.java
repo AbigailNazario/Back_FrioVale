@@ -30,6 +30,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Transactional(readOnly = true)
     public List<UserResponse> findAll(Role role) {
@@ -83,9 +84,8 @@ public class UserService {
             throw new BusinessRuleException("Já existe um usuário com o e-mail '" + email + "'");
         }
 
-        String rawPassword = StringUtils.hasText(request.password())
-                ? request.password()
-                : generatePassword();
+        boolean senhaGerada = !StringUtils.hasText(request.password());
+        String rawPassword = senhaGerada ? generatePassword() : request.password();
 
         User user = User.builder()
                 .name(request.name().trim())
@@ -94,7 +94,14 @@ public class UserService {
                 .password(passwordEncoder.encode(rawPassword))
                 .role(request.role())
                 .build();
-        return UserResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+
+        // Envia as credenciais (senha gerada automaticamente) para o e-mail do usuário.
+        if (senhaGerada) {
+            emailService.enviarCredenciais(saved.getName(), saved.getEmail(), rawPassword);
+        }
+
+        return UserResponse.from(saved);
     }
 
     private String generatePassword() {

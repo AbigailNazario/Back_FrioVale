@@ -2,6 +2,7 @@ package com.pi.frioVale.integration.thingspeak;
 
 import com.pi.frioVale.domain.Container;
 import com.pi.frioVale.domain.Trip;
+import com.pi.frioVale.service.ImpactService;
 import com.pi.frioVale.service.TelemetryService;
 import com.pi.frioVale.service.ThingSpeakLogService;
 import com.pi.frioVale.service.TripService;
@@ -26,6 +27,7 @@ public class ThingSpeakPollingScheduler {
     private final ThingSpeakIntegrationService thingSpeak;
     private final TelemetryService telemetryService;
     private final ThingSpeakLogService thingSpeakLogService;
+    private final ImpactService impactService;
 
     @Scheduled(fixedRateString = "${friovale.thingspeak.poll-rate-ms:15000}")
     public void poll() {
@@ -79,6 +81,15 @@ public class ThingSpeakPollingScheduler {
 
         // Guarda o histórico bruto do IoT para a tela de logs.
         thingSpeakLogService.saveReadings(container, readings);
+
+        // Processa impactos do acelerômetro isoladamente: uma falha aqui não derruba o poll
+        // nem interfere na telemetria/IA térmica.
+        try {
+            impactService.processReadings(container, readings);
+        } catch (RuntimeException ex) {
+            log.error("Falha ao processar impactos do contêiner {}: {}",
+                    container.getCode(), ex.getMessage(), ex);
+        }
 
         // A telemetria da viagem usa a entrada mais recente que possui temperatura.
         readings.stream()

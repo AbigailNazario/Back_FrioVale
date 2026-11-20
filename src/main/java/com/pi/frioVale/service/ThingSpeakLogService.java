@@ -28,6 +28,7 @@ public class ThingSpeakLogService {
     private final ContainerRepository containerRepository;
     private final ThingSpeakIntegrationService thingSpeak;
     private final Clock clock;
+    private final ImpactService impactService;
 
     @Transactional(readOnly = true)
     public List<ThingSpeakLogResponse> list(Long containerId) {
@@ -105,6 +106,14 @@ public class ThingSpeakLogService {
             List<ThingSpeakReading> readings = thingSpeak.fetchRecentReadings(
                     container.getThingSpeakChannelId(), container.getThingSpeakApiKey(), results);
             totalSaved += saveReadings(container, readings);
+
+            // Captura impactos atrasados mesmo sem viagem ativa (log bruto preservado).
+            try {
+                impactService.processReadings(container, readings);
+            } catch (RuntimeException ex) {
+                log.warn("Falha ao processar impactos do contêiner {} na sincronização: {}",
+                        container.getCode(), ex.getMessage());
+            }
         }
         return totalSaved;
     }

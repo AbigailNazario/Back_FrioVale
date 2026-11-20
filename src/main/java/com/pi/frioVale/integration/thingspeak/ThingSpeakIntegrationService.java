@@ -76,14 +76,48 @@ public class ThingSpeakIntegrationService {
         return latest.temperature() == null ? Optional.empty() : Optional.of(latest);
     }
 
+    /**
+     * Converte um feed. Quando field1 é um código de evento de impacto (800/840/841),
+     * o valor NÃO é temperatura: ele vira eventCode, field2 vira plate e field5 o pico (g).
+     * Para leituras normais, mantém o comportamento anterior (field1=temperatura etc.).
+     */
     private ThingSpeakReading toReading(ThingSpeakResponseDTO.Feed feed) {
+        Integer eventCode = parseEventCode(feed.field1());
+        LocalDateTime timestamp = parseTimestamp(feed.createdAt());
+        if (eventCode != null) {
+            // field2 é a identificação da placa (texto), field5 o pico em g.
+            return new ThingSpeakReading(
+                    feed.entryId(), timestamp, eventCode,
+                    parseDouble(feed.field5()),
+                    StringUtils.hasText(feed.field2()) ? feed.field2().trim() : null);
+        }
         return new ThingSpeakReading(
                 feed.entryId(),
-                parseTimestamp(feed.createdAt()),
+                timestamp,
                 parseDouble(feed.field1()),
                 parseDouble(feed.field2()),
                 parseDouble(feed.field3()),
                 parseDouble(feed.field4()));
+    }
+
+    /** Códigos de evento do acelerômetro publicados pelo firmware no field1. */
+    private static final java.util.Set<Integer> IMPACT_EVENT_CODES =
+            java.util.Set.of(800, 840, 841);
+
+    private Integer parseEventCode(String value) {
+        Integer code = parseInt(value);
+        return code != null && IMPACT_EVENT_CODES.contains(code) ? code : null;
+    }
+
+    private Integer parseInt(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private LocalDateTime parseTimestamp(String createdAt) {

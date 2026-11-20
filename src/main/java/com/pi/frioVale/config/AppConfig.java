@@ -13,6 +13,7 @@ import java.time.ZoneId;
 @EnableScheduling
 @EnableConfigurationProperties({
         ThingSpeakProperties.class,
+        ImpactProperties.class,
         JwtProperties.class,
         BootstrapProperties.class
 })

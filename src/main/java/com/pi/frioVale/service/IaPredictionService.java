@@ -110,16 +110,16 @@ public class IaPredictionService {
         Trip trip = tripRepository.findDetailedById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Viagem", tripId));
 
-        // Buscar as duas ultimas leituras ordenadas cronologicamente
+        // Buscar as duas leituras MAIS RECENTES (mais nova primeiro)
         List<Telemetry> leituras = telemetryRepository
-                .findTop2ByTripIdOrderByTimestampAsc(tripId);
+                .findTop2ByTripIdOrderByTimestampDesc(tripId);
 
         if (leituras == null || leituras.isEmpty()) {
             return Optional.empty();
         }
 
-        Telemetry atual = leituras.get(leituras.size() - 1);
-        Telemetry anterior = leituras.size() > 1 ? leituras.get(leituras.size() - 2) : null;
+        Telemetry atual = leituras.get(0);
+        Telemetry anterior = leituras.size() > 1 ? leituras.get(1) : null;
 
         Double variacaoTemp = null;
         Double variacaoUmid = null;

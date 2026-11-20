@@ -4,6 +4,7 @@ import com.pi.frioVale.dto.AlertResponse;
 import com.pi.frioVale.dto.DashboardSummaryResponse;
 import com.pi.frioVale.dto.TripMonitorResponse;
 import com.pi.frioVale.repository.AlertRepository;
+import com.pi.frioVale.repository.ImpactAlertRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ public class DashboardService {
     private final TripService tripService;
     private final TelemetryService telemetryService;
     private final AlertRepository alertRepository;
+    private final ImpactAlertRepository impactAlertRepository;
 
     @Transactional(readOnly = true)
     public DashboardSummaryResponse summary() {
@@ -42,7 +44,10 @@ public class DashboardService {
                 .filter(Objects::nonNull)
                 .max(Double::compareTo)
                 .orElse(null);
-        long activeAlerts = alertRepository.countByResolvedFalse();
+        // Inclui os alertas de impacto do acelerômetro no contador do dashboard.
+        // Os alertas térmicos permanecem em Alert; os de impacto ficam em ImpactAlert.
+        long activeAlerts = alertRepository.countByResolvedFalse()
+                + impactAlertRepository.countByResolvedFalse();
 
         return new DashboardSummaryResponse(
                 trips.size(),

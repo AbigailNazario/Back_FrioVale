@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface ThingSpeakLogRepository extends JpaRepository<ThingSpeakLog, Long> {
 
@@ -18,4 +19,8 @@ public interface ThingSpeakLogRepository extends JpaRepository<ThingSpeakLog, Lo
     boolean existsByChannelIdAndEntryId(String channelId, Long entryId);
 
     boolean existsByChannelIdAndRecordedAt(String channelId, LocalDateTime recordedAt);
+
+    /** Log bruto mais recente do contêiner (usado para inferir a atividade do acelerômetro). */
+    @EntityGraph(attributePaths = "container")
+    Optional<ThingSpeakLog> findFirstByContainerIdOrderByRecordedAtDesc(Long containerId);
 }

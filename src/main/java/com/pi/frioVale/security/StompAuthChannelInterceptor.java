@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
-    private static final Pattern TRIP_ALERTS = Pattern.compile("^/topic/trips/(\\d+)/alerts$");
+    private static final Pattern TRIP_ALERTS = Pattern.compile("^/topic/trips/(\\d+)/(alerts|impact-alerts)$");
 
     private final JwtDecoder jwtDecoder;
     private final JwtAuthenticationConverter jwtAuthenticationConverter;

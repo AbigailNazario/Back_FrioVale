@@ -79,6 +79,65 @@ public class IaReprocessingService {
     }
 
     /**
+     * Reprocessa SEMPRE a última leitura de uma viagem, atualizando seu resultado de IA.
+     * Garante que a análise mais recente esteja disponível no painel mesmo quando
+     * leituras antigas já foram processadas.
+     */
+    @Transactional
+    public boolean reprocessarUltimaLeitura(Long tripId) {
+        Telemetry ultima = telemetryRepository.findFirstByTripIdOrderByTimestampDesc(tripId)
+                .orElse(null);
+        if (ultima == null) {
+            log.warn("Viagem {} não possui leituras para analisar", tripId);
+            return false;
+        }
+
+        // Buscar as duas leituras mais recentes para calcular variações
+        List<Telemetry> recentes = telemetryRepository
+                .findTop2ByTripIdOrderByTimestampDesc(tripId);
+        Double varTemp = null;
+        Double varUmid = null;
+        if (recentes != null && recentes.size() >= 2) {
+            Telemetry atual = recentes.get(0);
+            Telemetry anterior = recentes.get(1);
+            if (anterior.getTemperature() != null && atual.getTemperature() != null) {
+                varTemp = atual.getTemperature() - anterior.getTemperature();
+            }
+            if (anterior.getHumidity() != null && atual.getHumidity() != null) {
+                varUmid = atual.getHumidity() - anterior.getHumidity();
+            }
+        }
+
+        var iaResult = iaPredictionService.predictIa(
+                tripId, ultima.getTemperature(), ultima.getHumidity(), varTemp, varUmid);
+        if (iaResult.isEmpty()) {
+            log.error("Falha ao obter predicao da IA para a ultima leitura da viagem {}", tripId);
+            return false;
+        }
+
+        var ia = iaResult.get();
+        iaPredictionRepository.findByTelemetryId(ultima.getId())
+                .ifPresent(iaPredictionRepository::delete);
+        iaPredictionRepository.flush();
+
+        IaPredictionResult prediction = IaPredictionResult.builder()
+                .telemetry(ultima)
+                .iaAnomalia(ia.anomalia())
+                .iaResultado(ia.resultado())
+                .iaMensagem(ia.mensagem())
+                .iaPerfil(ia.perfil())
+                .regrasAnomalia(ultima.getIsAlert())
+                .divergencia(!ultima.getIsAlert().equals(ia.anomalia()))
+                .analyzedAt(LocalDateTime.now(clock))
+                .build();
+        iaPredictionRepository.save(prediction);
+        iaPredictionRepository.flush();
+        log.info("IA salva para ultima leitura {} da viagem {}: {}",
+                ultima.getId(), tripId, ia.resultado());
+        return true;
+    }
+
+    /**
      * Reprocessa todas as leituras pendentes de uma viagem específica.
      * Retorna a quantidade de leituras processadas.
      */
@@ -111,19 +170,21 @@ public class IaReprocessingService {
             return;
         }
 
-        // Buscar leitura anterior para calcular variações
-        List<Telemetry> anteriores = telemetryRepository
-                .findTop2ByTripIdOrderByTimestampAsc(trip.getId());
+        // Buscar as DUAS leituras mais recentes (a atual e a imediatamente anterior)
+        // para calcular as variações corretamente.
+        List<Telemetry> recentes = telemetryRepository
+                .findTop2ByTripIdOrderByTimestampDesc(trip.getId());
         Double varTemp = null;
         Double varUmid = null;
 
-        if (anteriores != null && anteriores.size() >= 2) {
-            Telemetry penultima = anteriores.get(anteriores.size() - 2);
-            if (penultima.getTemperature() != null && telemetry.getTemperature() != null) {
-                varTemp = telemetry.getTemperature() - penultima.getTemperature();
+        if (recentes != null && recentes.size() >= 2) {
+            Telemetry atual = recentes.get(0);      // mais recente
+            Telemetry anteriorLeitura = recentes.get(1); // imediatamente anterior
+            if (anteriorLeitura.getTemperature() != null && atual.getTemperature() != null) {
+                varTemp = atual.getTemperature() - anteriorLeitura.getTemperature();
             }
-            if (penultima.getHumidity() != null && telemetry.getHumidity() != null) {
-                varUmid = telemetry.getHumidity() - penultima.getHumidity();
+            if (anteriorLeitura.getHumidity() != null && atual.getHumidity() != null) {
+                varUmid = atual.getHumidity() - anteriorLeitura.getHumidity();
             }
         }
 

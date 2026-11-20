@@ -11,6 +11,8 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.pi.frioVale.domain.enums.TripStatus;
 import com.pi.frioVale.dto.DriverStatsResponse;
+import com.pi.frioVale.dto.ImpactResponse;
+import com.pi.frioVale.dto.ImpactSummaryResponse;
 import com.pi.frioVale.dto.TelemetryResponse;
 import com.pi.frioVale.dto.TripMonitorResponse;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ public class ReportPdfService {
     private final TripService tripService;
     private final ReportService reportService;
     private final TelemetryService telemetryService;
+    private final ImpactService impactService;
     private final Clock clock;
 
     /** Relatório sintese (viagens ou motoristas selecionados). */
@@ -155,6 +158,9 @@ public class ReportPdfService {
                 document.add(new Paragraph(" "));
             }
 
+            // Impactos do acelerômetro (mesmos valores da aba Impactos)
+            addImpactsSection(document, tripId);
+
             // Tabela detalhada de leituras
             document.add(sectionTitle("Leituras ao longo do trajeto (" + readings.size() + ")"));
             if (readings.isEmpty()) {
@@ -185,6 +191,51 @@ public class ReportPdfService {
         } catch (DocumentException ex) {
             throw new IllegalStateException("Não foi possível gerar o PDF detalhado da viagem", ex);
         }
+    }
+
+    /** Seção de impactos do acelerômetro: resumo + tabela de picos por ocorrência. */
+    private void addImpactsSection(Document document, Long tripId) throws DocumentException {
+        ImpactSummaryResponse summary = impactService.getSummary(tripId);
+        document.add(sectionTitle("Impactos na viagem"));
+
+        PdfPTable impactsSummary = new PdfPTable(new float[]{2.5f, 2.5f, 5f});
+        impactsSummary.setWidthPercentage(100);
+        addHeader(impactsSummary, "Total de impactos");
+        addHeader(impactsSummary, "Maior pico");
+        addHeader(impactsSummary, "Último impacto");
+        addCell(impactsSummary, String.valueOf(summary.total()), 0);
+        addCell(impactsSummary, peak(summary.maxPeakG()), 0);
+        addCell(impactsSummary, summary.lastImpact() == null
+                ? "—" : timestamp(summary.lastImpact().originalTimestamp()), 0);
+        document.add(impactsSummary);
+        document.add(new Paragraph(" "));
+
+        List<ImpactResponse> impacts = impactService.getByTrip(tripId);
+        if (summary.total() == 0) {
+            String message = switch (summary.sensorStatus() == null ? "" : summary.sensorStatus()) {
+                case "NO_RECENT_DATA" -> "Sem dados recentes do acelerômetro";
+                case "CALIBRATING" -> "Sensor em calibração";
+                default -> "Nenhum impacto registrado";
+            };
+            document.add(new Paragraph(message, bodyFont()));
+        } else {
+            PdfPTable table = new PdfPTable(new float[]{5f, 3f});
+            table.setWidthPercentage(100);
+            addHeader(table, "Data / hora");
+            addHeader(table, "Pico (g)");
+            int row = 0;
+            for (ImpactResponse impact : impacts) {
+                addCell(table, timestamp(impact.originalTimestamp()), row);
+                addCell(table, peak(impact.peakG()), row);
+                row++;
+            }
+            document.add(table);
+        }
+        document.add(new Paragraph(" "));
+    }
+
+    private static String peak(Double value) {
+        return value == null ? "—" : String.format(PT_BR, "%.1f g", value);
     }
 
     /* ---------- sintese (mantida) ---------- */

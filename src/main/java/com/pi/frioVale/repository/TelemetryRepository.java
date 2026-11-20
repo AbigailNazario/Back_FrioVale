@@ -16,6 +16,9 @@ public interface TelemetryRepository extends JpaRepository<Telemetry, Long> {
 
     List<Telemetry> findTop2ByTripIdOrderByTimestampAsc(Long tripId);
 
+    /** Retorna as duas leituras MAIS RECENTES de uma viagem (mais nova primeiro). */
+    List<Telemetry> findTop2ByTripIdOrderByTimestampDesc(Long tripId);
+
     boolean existsByTripIdAndSourceEntryId(Long tripId, Long sourceEntryId);
 
     long countByTripId(Long tripId);

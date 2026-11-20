@@ -128,6 +128,23 @@ public class IaPredictionController {
         }
     }
 
+    /** Reprocessa SEMPRE a última leitura de uma viagem, garantindo análise no painel. */
+    @PostMapping("/trips/{tripId}/reprocess-latest")
+    public ResponseEntity<Map<String, Object>> reprocessLatest(@PathVariable Long tripId) {
+        try {
+            boolean processado = iaReprocessingService.reprocessarUltimaLeitura(tripId);
+            return ResponseEntity.ok(Map.of(
+                    "status", "ok",
+                    "tripId", tripId,
+                    "processado", processado
+            ));
+        } catch (ResourceNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception ex) {
+            return ResponseEntity.ok(Map.of("status", "erro", "mensagem", ex.getMessage()));
+        }
+    }
+
     /** Reprocessa leituras pendentes de IA para uma viagem (reprocessamento automático). */
     @PostMapping("/trips/{tripId}/reprocess")
     public ResponseEntity<Map<String, Object>> reprocessTrip(@PathVariable Long tripId) {

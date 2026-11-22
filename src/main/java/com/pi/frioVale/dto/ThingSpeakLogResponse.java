@@ -15,6 +15,12 @@ public record ThingSpeakLogResponse(
         Double humidity,
         Double latitude,
         Double longitude,
+        /** Pico do intervalo em g (field3). Pode ser null em leituras antigas. */
+        Double peakG,
+        /** Inclinação em graus (field4). Pode ser null em leituras antigas. */
+        Double tiltDeg,
+        /** Contador acumulado de impactos na sessão do ESP32 (field5). */
+        Double sessionImpactCount,
         LocalDateTime recordedAt,
         LocalDateTime fetchedAt
 ) {
@@ -29,6 +35,9 @@ public record ThingSpeakLogResponse(
                 log.getHumidity(),
                 log.getLatitude(),
                 log.getLongitude(),
+                log.getPeakG(),
+                log.getTiltDeg(),
+                log.getSessionImpactCount(),
                 log.getRecordedAt(),
                 log.getFetchedAt());
     }

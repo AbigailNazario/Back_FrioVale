@@ -91,13 +91,20 @@ public class ThingSpeakIntegrationService {
                     parseDouble(feed.field5()),
                     StringUtils.hasText(feed.field2()) ? feed.field2().trim() : null);
         }
+        // field3/field4: no firmware atual são pico (g) e inclinação (°).
+        // Mantemos latitude/longitude por compatibilidade com leituras antigas.
+        Double field3 = parseDouble(feed.field3());
+        Double field4 = parseDouble(feed.field4());
         return new ThingSpeakReading(
                 feed.entryId(),
                 timestamp,
                 parseDouble(feed.field1()),
                 parseDouble(feed.field2()),
-                parseDouble(feed.field3()),
-                parseDouble(feed.field4()));
+                field3,   // latitude (legado)
+                field4,   // longitude (legado)
+                field3,   // peakG
+                field4,   // tiltDeg
+                parseDouble(feed.field5())); // sessionImpactCount
     }
 
     /** Códigos de evento do acelerômetro publicados pelo firmware no field1. */

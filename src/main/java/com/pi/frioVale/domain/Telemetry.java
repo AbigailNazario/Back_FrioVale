@@ -33,6 +33,18 @@ public class Telemetry {
 
     private Double longitude;
 
+    /** field3: maior pico de aceleração dinâmica do intervalo, em g (zero é preservado). */
+    @Column(name = "peak_g")
+    private Double peakG;
+
+    /** field4: inclinação medida pelo acelerômetro, em graus. */
+    @Column(name = "tilt_deg")
+    private Double tiltDeg;
+
+    /** field5: contador acumulado de impactos na sessão do ESP32 (não somar entre leituras). */
+    @Column(name = "session_impact_count")
+    private Double sessionImpactCount;
+
     /** Momento da leitura (created_at do ThingSpeak, convertido para o fuso da aplicação). */
     @Column(name = "recorded_at", nullable = false)
     private LocalDateTime timestamp;

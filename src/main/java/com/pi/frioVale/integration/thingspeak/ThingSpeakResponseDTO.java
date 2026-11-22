@@ -7,10 +7,12 @@ import java.util.List;
 
 /**
  * Resposta de GET /channels/{id}/feeds.json?results=1
- * Mapeamento dos campos do ESP32: field1=temperatura/ código de evento, field2=umidade/placa,
- * field3=latitude, field4=longitude, field5=pico em g (eventos de impacto).
- * O firmware publica eventos de impacto (800/840/841) no MESMO canal: nesses casos
- * field1 traz o código do evento e field5 o pico. O ThingSpeak devolve String (ou null).
+ * Mapeamento dos campos do ESP32 (mesmo canal):
+ * - Leitura normal: field1=temperatura, field2=umidade, field3=pico do intervalo em g,
+ *   field4=inclinação em graus, field5=contador acumulado de impactos da sessão.
+ * - Evento de impacto (field1=800/840/841): field2=placa, field5=pico em g.
+ * Latitude/longitude eram lidos de field3/field4 em firmware antigo (compatibilidade).
+ * O ThingSpeak devolve String (ou null); valores ausentes viram null, zeros são preservados.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ThingSpeakResponseDTO(Channel channel, List<Feed> feeds) {

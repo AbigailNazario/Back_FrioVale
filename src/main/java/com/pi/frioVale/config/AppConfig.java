@@ -14,6 +14,7 @@ import java.time.ZoneId;
 @EnableConfigurationProperties({
         ThingSpeakProperties.class,
         ImpactProperties.class,
+        ImpactEventChannelProperties.class,
         JwtProperties.class,
         BootstrapProperties.class
 })

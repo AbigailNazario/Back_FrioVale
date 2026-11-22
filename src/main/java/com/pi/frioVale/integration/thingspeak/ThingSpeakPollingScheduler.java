@@ -2,6 +2,7 @@ package com.pi.frioVale.integration.thingspeak;
 
 import com.pi.frioVale.domain.Container;
 import com.pi.frioVale.domain.Trip;
+import com.pi.frioVale.service.ImpactEventSyncService;
 import com.pi.frioVale.service.ImpactService;
 import com.pi.frioVale.service.TelemetryService;
 import com.pi.frioVale.service.ThingSpeakLogService;
@@ -28,6 +29,7 @@ public class ThingSpeakPollingScheduler {
     private final TelemetryService telemetryService;
     private final ThingSpeakLogService thingSpeakLogService;
     private final ImpactService impactService;
+    private final ImpactEventSyncService impactEventSyncService;
 
     @Scheduled(fixedRateString = "${friovale.thingspeak.poll-rate-ms:15000}")
     public void poll() {
@@ -63,6 +65,15 @@ public class ThingSpeakPollingScheduler {
             }
         } catch (RuntimeException ex) {
             log.error("Falha ao sincronizar logs do ThingSpeak: {}", ex.getMessage());
+        }
+        // Eventos individuais (canal adicional) — isolado: nunca interrompe a sincronização principal.
+        try {
+            int eventos = impactEventSyncService.sync();
+            if (eventos > 0) {
+                log.debug("Sincronização do canal de eventos gravou {} novo(s) impacto(s)", eventos);
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao sincronizar eventos individuais do acelerômetro: {}", ex.getMessage());
         }
     }
 

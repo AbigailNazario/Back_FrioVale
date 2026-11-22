@@ -18,6 +18,12 @@ public interface ThingSpeakLogRepository extends JpaRepository<ThingSpeakLog, Lo
 
     boolean existsByChannelIdAndEntryId(String channelId, Long entryId);
 
+    /** Busca um log já importado para preencher campos novos sem criar duplicata. */
+    Optional<ThingSpeakLog> findByChannelIdAndEntryId(String channelId, Long entryId);
+
+    /** Todos os logs de um canal (usado no backfill de campos do acelerômetro). */
+    List<ThingSpeakLog> findByChannelIdOrderByRecordedAtAsc(String channelId);
+
     boolean existsByChannelIdAndRecordedAt(String channelId, LocalDateTime recordedAt);
 
     /** Log bruto mais recente do contêiner (usado para inferir a atividade do acelerômetro). */

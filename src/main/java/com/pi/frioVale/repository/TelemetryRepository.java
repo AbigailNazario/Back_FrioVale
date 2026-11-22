@@ -21,6 +21,9 @@ public interface TelemetryRepository extends JpaRepository<Telemetry, Long> {
 
     boolean existsByTripIdAndSourceEntryId(Long tripId, Long sourceEntryId);
 
+    /** Busca telemetria já gravada para preencher os novos campos do acelerômetro sem duplicar. */
+    Optional<Telemetry> findByTripIdAndSourceEntryId(Long tripId, Long sourceEntryId);
+
     long countByTripId(Long tripId);
 
     @Query("""

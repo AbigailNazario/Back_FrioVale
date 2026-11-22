@@ -139,7 +139,7 @@ class IaPredictionServiceTest {
     void deveRetornarVazioQuandoNaoHaLeituras() {
         trip.setFruit(fruitUva);
         when(tripRepository.findDetailedById(1L)).thenReturn(Optional.of(trip));
-        when(telemetryRepository.findTop2ByTripIdOrderByTimestampAsc(1L))
+        when(telemetryRepository.findTop2ByTripIdOrderByTimestampDesc(1L))
                 .thenReturn(List.of());
 
         var resultado = iaPredictionService.analyzeLatestReading(1L);
@@ -160,7 +160,7 @@ class IaPredictionServiceTest {
         unicaLeitura.setTemperature(12.0);
         unicaLeitura.setHumidity(90.0);
         unicaLeitura.setTimestamp(LocalDateTime.now());
-        when(telemetryRepository.findTop2ByTripIdOrderByTimestampAsc(1L))
+        when(telemetryRepository.findTop2ByTripIdOrderByTimestampDesc(1L))
                 .thenReturn(List.of(unicaLeitura));
 
         // O RestClient real tentara conectar e falhará, retornando Optional.empty()
@@ -189,7 +189,7 @@ class IaPredictionServiceTest {
         atual.setHumidity(90.0);
         atual.setTimestamp(LocalDateTime.now());
 
-        when(telemetryRepository.findTop2ByTripIdOrderByTimestampAsc(1L))
+        when(telemetryRepository.findTop2ByTripIdOrderByTimestampDesc(1L))
                 .thenReturn(List.of(anterior, atual));
 
         // API nao esta rodando, entao retorna vazio, mas as variacoes foram calculadas internamente

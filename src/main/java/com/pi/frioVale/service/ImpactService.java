@@ -67,10 +67,23 @@ public class ImpactService {
      */
     @Transactional
     public int processReadings(Container container, List<ThingSpeakReading> readings) {
+        return processReadings(container, readings, null);
+    }
+
+    /**
+     * Variante com channelId explícito, usada quando os eventos vêm de um canal
+     * ThingSpeak separado do canal de telemetria do contêiner. A deduplicação por
+     * (channelId, entryId) usa então o canal de origem dos eventos, evitando colisões
+     * de entry_id entre canais diferentes.
+     */
+    @Transactional
+    public int processReadings(Container container, List<ThingSpeakReading> readings, String channelIdOverride) {
         if (container == null || readings == null || readings.isEmpty()) {
             return 0;
         }
-        String channelId = container.getThingSpeakChannelId();
+        String channelId = channelIdOverride != null && !channelIdOverride.isBlank()
+                ? channelIdOverride
+                : container.getThingSpeakChannelId();
         if (channelId == null || channelId.isBlank()) {
             return 0;
         }

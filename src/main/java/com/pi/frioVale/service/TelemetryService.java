@@ -14,7 +14,9 @@ import com.pi.frioVale.exception.ResourceNotFoundException;
 import com.pi.frioVale.integration.thingspeak.ThingSpeakReading;
 import com.pi.frioVale.repository.AlertRepository;
 import com.pi.frioVale.repository.IaPredictionRepository;
+import com.pi.frioVale.domain.ThingSpeakLog;
 import com.pi.frioVale.repository.TelemetryRepository;
+import com.pi.frioVale.repository.ThingSpeakLogRepository;
 import com.pi.frioVale.repository.TripRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,7 @@ public class TelemetryService {
     private final TripRepository tripRepository;
     private final IaPredictionService iaPredictionService;
     private final IaPredictionRepository iaPredictionRepository;
+    private final ThingSpeakLogRepository thingSpeakLogRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -60,10 +63,24 @@ public class TelemetryService {
             log.debug("Viagem {} não está mais IN_TRANSIT; leitura descartada", tripId);
             return Optional.empty();
         }
-        // O poll devolve sempre a última entrada: ignora se já foi gravada.
-        if (reading.entryId() != null
-                && telemetryRepository.existsByTripIdAndSourceEntryId(tripId, reading.entryId())) {
-            return Optional.empty();
+        // O poll devolve sempre a última entrada: se já foi gravada, apenas preenche
+        // os campos do acelerômetro em leituras antigas (backfill), sem duplicar.
+        if (reading.entryId() != null) {
+            var existente = telemetryRepository.findByTripIdAndSourceEntryId(tripId, reading.entryId());
+            if (existente.isPresent()) {
+                Telemetry t = existente.get();
+                boolean atualizado = false;
+                if (t.getPeakG() == null && reading.peakG() != null) { t.setPeakG(reading.peakG()); atualizado = true; }
+                if (t.getTiltDeg() == null && reading.tiltDeg() != null) { t.setTiltDeg(reading.tiltDeg()); atualizado = true; }
+                if (t.getSessionImpactCount() == null && reading.sessionImpactCount() != null) {
+                    t.setSessionImpactCount(reading.sessionImpactCount()); atualizado = true;
+                }
+                if (atualizado) {
+                    telemetryRepository.save(t);
+                    log.debug("Campos do acelerômetro preenchidos na telemetria existente (entry {})", reading.entryId());
+                }
+                return Optional.empty();
+            }
         }
         // Ignora leitura anterior ao início da viagem (último dado do canal de antes da partida).
         if (trip.getStartDate() != null && reading.timestamp().isBefore(trip.getStartDate())) {
@@ -98,6 +115,9 @@ public class TelemetryService {
                 .humidity(reading.humidity())
                 .latitude(reading.latitude())
                 .longitude(reading.longitude())
+                .peakG(reading.peakG())
+                .tiltDeg(reading.tiltDeg())
+                .sessionImpactCount(reading.sessionImpactCount())
                 .timestamp(reading.timestamp())
                 .sourceEntryId(reading.entryId())
                 .isAlert(outOfRange)
@@ -181,6 +201,43 @@ public class TelemetryService {
         assertTripExists(tripId);
         return telemetryRepository.findByTripIdOrderByTimestampAsc(tripId).stream()
                 .map(TelemetryResponse::from).toList();
+    }
+
+    /**
+     * Preenche os campos do acelerômetro em telemetrias já gravadas, casando cada
+     * leitura com o log bruto do ThingSpeak pelo sourceEntryId (mesmo canal/entry_id).
+     * Não cria duplicatas e preserva valores já preenchidos.
+     *
+     * @return quantidade de telemetrias atualizadas
+     */
+    @Transactional
+    public int backfillAccelerometerFields(Long tripId) {
+        Trip trip = tripRepository.findDetailedById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException("Viagem", tripId));
+        if (trip.getContainer() == null || trip.getContainer().getThingSpeakChannelId() == null) {
+            return 0;
+        }
+        String channelId = trip.getContainer().getThingSpeakChannelId().trim();
+        var logs = thingSpeakLogRepository.findByChannelIdOrderByRecordedAtAsc(channelId);
+        java.util.Map<Long, ThingSpeakLog> byEntry = new java.util.HashMap<>();
+        for (ThingSpeakLog log : logs) {
+            if (log.getEntryId() != null) byEntry.put(log.getEntryId(), log);
+        }
+
+        int updated = 0;
+        for (Telemetry t : telemetryRepository.findByTripIdOrderByTimestampAsc(tripId)) {
+            ThingSpeakLog log = t.getSourceEntryId() == null ? null : byEntry.get(t.getSourceEntryId());
+            if (log == null) continue;
+            boolean alterado = false;
+            if (t.getPeakG() == null && log.getPeakG() != null) { t.setPeakG(log.getPeakG()); alterado = true; }
+            if (t.getTiltDeg() == null && log.getTiltDeg() != null) { t.setTiltDeg(log.getTiltDeg()); alterado = true; }
+            if (t.getSessionImpactCount() == null && log.getSessionImpactCount() != null) {
+                t.setSessionImpactCount(log.getSessionImpactCount()); alterado = true;
+            }
+            if (alterado) { telemetryRepository.save(t); updated++; }
+        }
+        log.info("Backfill do acelerômetro na viagem {}: {} telemetria(s) atualizada(s)", tripId, updated);
+        return updated;
     }
 
     @Transactional(readOnly = true)

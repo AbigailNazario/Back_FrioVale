@@ -29,6 +29,7 @@ public class ThingSpeakLogService {
     private final ThingSpeakIntegrationService thingSpeak;
     private final Clock clock;
     private final ImpactService impactService;
+    private final ImpactEventSyncService impactEventSyncService;
 
     @Transactional(readOnly = true)
     public List<ThingSpeakLogResponse> list(Long containerId) {
@@ -60,9 +61,32 @@ public class ThingSpeakLogService {
             if (reading == null || reading.timestamp() == null) {
                 continue;
             }
-            boolean alreadySaved = reading.entryId() != null
-                    ? logRepository.existsByChannelIdAndEntryId(channel, reading.entryId())
-                    : logRepository.existsByChannelIdAndRecordedAt(channel, reading.timestamp());
+            ThingSpeakLog existente = reading.entryId() != null
+                    ? logRepository.findByChannelIdAndEntryId(channel, reading.entryId()).orElse(null)
+                    : null;
+            if (existente != null) {
+                // Backfill: preenche os novos campos de leituras já importadas, sem duplicar.
+                boolean atualizado = false;
+                if (existente.getPeakG() == null && reading.peakG() != null) {
+                    existente.setPeakG(reading.peakG());
+                    atualizado = true;
+                }
+                if (existente.getTiltDeg() == null && reading.tiltDeg() != null) {
+                    existente.setTiltDeg(reading.tiltDeg());
+                    atualizado = true;
+                }
+                if (existente.getSessionImpactCount() == null && reading.sessionImpactCount() != null) {
+                    existente.setSessionImpactCount(reading.sessionImpactCount());
+                    atualizado = true;
+                }
+                if (atualizado) {
+                    logRepository.save(existente);
+                    log.debug("Campos do acelerômetro preenchidos no log existente (entry {})", reading.entryId());
+                }
+                continue;
+            }
+            boolean alreadySaved = reading.entryId() == null
+                    && logRepository.existsByChannelIdAndRecordedAt(channel, reading.timestamp());
             if (alreadySaved) {
                 continue;
             }
@@ -75,6 +99,9 @@ public class ThingSpeakLogService {
                     .humidity(reading.humidity())
                     .latitude(reading.latitude())
                     .longitude(reading.longitude())
+                    .peakG(reading.peakG())
+                    .tiltDeg(reading.tiltDeg())
+                    .sessionImpactCount(reading.sessionImpactCount())
                     .recordedAt(reading.timestamp())
                     .fetchedAt(fetchedAt)
                     .build());
@@ -114,6 +141,12 @@ public class ThingSpeakLogService {
                 log.warn("Falha ao processar impactos do contêiner {} na sincronização: {}",
                         container.getCode(), ex.getMessage());
             }
+        }
+        // Eventos 800 do canal adicional (3551998) — isolado do fluxo principal.
+        try {
+            impactEventSyncService.sync();
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao sincronizar eventos individuais do acelerômetro: {}", ex.getMessage());
         }
         return totalSaved;
     }

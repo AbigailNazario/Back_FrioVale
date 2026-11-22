@@ -55,6 +55,13 @@ public class TripController {
         return telemetryService.getHistory(id);
     }
 
+    /** Preenche os campos do acelerômetro em leituras antigas (a partir dos logs já importados). */
+    @PostMapping("/{id}/backfill-accelerometer")
+    public java.util.Map<String, Object> backfillAccelerometer(@PathVariable Long id) {
+        int atualizadas = telemetryService.backfillAccelerometerFields(id);
+        return java.util.Map.of("status", "ok", "tripId", id, "atualizadas", atualizadas);
+    }
+
     @GetMapping("/{id}/alerts")
     public List<AlertResponse> alerts(@PathVariable Long id) {
         return telemetryService.getAlerts(id);

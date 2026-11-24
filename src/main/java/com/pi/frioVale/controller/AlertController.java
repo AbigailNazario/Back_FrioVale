@@ -1,5 +1,6 @@
 package com.pi.frioVale.controller;
 
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.dto.AlertResponse;
 import com.pi.frioVale.service.TelemetryService;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +16,11 @@ import java.util.List;
 public class AlertController {
 
     private final TelemetryService telemetryService;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     /** Todos os alertas, do mais recente para o mais antigo. */
     @GetMapping
     public List<AlertResponse> list() {
-        return telemetryService.getAllAlerts();
+        return accessGuard.onlyOwnTrips(telemetryService.getAllAlerts(), AlertResponse::tripId); // [Seguranca - IDOR]
     }
 }

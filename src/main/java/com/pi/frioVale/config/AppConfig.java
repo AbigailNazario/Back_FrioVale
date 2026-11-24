@@ -16,7 +16,9 @@ import java.time.ZoneId;
         ImpactProperties.class,
         ImpactEventChannelProperties.class,
         JwtProperties.class,
-        BootstrapProperties.class
+        BootstrapProperties.class,
+        OtpProperties.class,      // [Seguranca - 2FA]
+        SecurityProperties.class  // [Seguranca] codigo de missao
 })
 public class AppConfig {
 

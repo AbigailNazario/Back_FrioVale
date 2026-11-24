@@ -32,4 +32,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     List<Alert> findAllDetailed(Pageable pageable);
 
     long countByResolvedFalse();
+
+    /** [Seguranca - IDOR] Alertas abertos apenas das viagens informadas (dashboard do motorista). */
+    @org.springframework.data.jpa.repository.Query("select count(a) from Alert a where a.resolved = false and a.telemetry.trip.id in :tripIds")
+    long countOpenByTripIds(@org.springframework.data.repository.query.Param("tripIds") java.util.Collection<Long> tripIds);
 }

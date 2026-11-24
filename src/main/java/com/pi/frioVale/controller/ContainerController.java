@@ -1,5 +1,6 @@
 package com.pi.frioVale.controller;
 
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.dto.ContainerRequest;
 import com.pi.frioVale.dto.ContainerResponse;
 import com.pi.frioVale.service.ContainerService;
@@ -19,14 +20,16 @@ import java.util.List;
 public class ContainerController {
 
     private final ContainerService containerService;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     @GetMapping
     public List<ContainerResponse> list() {
-        return containerService.findAll();
+        return accessGuard.onlyOwnContainers(containerService.findAll(), ContainerResponse::id); // [Seguranca - IDOR]
     }
 
     @GetMapping("/{id}")
     public ContainerResponse getById(@PathVariable Long id) {
+        accessGuard.requireContainer(id); // [Seguranca - IDOR]
         return containerService.findById(id);
     }
 
@@ -35,6 +38,7 @@ public class ContainerController {
     public ContainerResponse create(
             @Valid @RequestBody ContainerRequest request,
             @AuthenticationPrincipal Jwt jwt) {
+        accessGuard.requireCompany("container:create"); // [Seguranca - IDOR] registra o bloqueio no log
         return containerService.create(request, jwt);
     }
 
@@ -43,12 +47,14 @@ public class ContainerController {
             @PathVariable Long id,
             @Valid @RequestBody ContainerRequest request,
             @AuthenticationPrincipal Jwt jwt) {
+        accessGuard.requireCompany("container:" + id + ":config"); // [Seguranca - IDOR] configuracao do dispositivo
         return containerService.update(id, request, jwt);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        accessGuard.requireCompany("container:" + id + ":delete"); // [Seguranca - IDOR]
         containerService.delete(id, jwt);
     }
 }

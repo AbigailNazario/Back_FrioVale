@@ -1,6 +1,6 @@
 package com.pi.frioVale.controller;
 
-import com.pi.frioVale.dto.AuthResponse;
+import com.pi.frioVale.dto.LoginChallengeResponse;
 import com.pi.frioVale.dto.LoginRequest;
 import com.pi.frioVale.dto.RegisterRequest;
 import com.pi.frioVale.dto.UserResponse;
@@ -26,14 +26,15 @@ public class AuthController {
     private final AuthService authService;
     private final UserService userService;
 
+    /** [Seguranca - 2FA] Senha correta devolve so o desafio do 2FA (mfaToken), nunca o token de acesso. */
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    public LoginChallengeResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public LoginChallengeResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 

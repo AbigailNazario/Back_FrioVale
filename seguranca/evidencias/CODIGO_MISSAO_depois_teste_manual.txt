@@ -1,0 +1,30 @@
+FrioVale - teste manual | codigo de missao: CODIGO_MISSAO | API: http://localhost:8080 | 2026-11-22T20:34:24-03:00
+------------------------------------------------------------
+CONTROLE 1 - AUTENTICACAO EM DOIS FATORES
+------------------------------------------------------------
+
+1. Senha correta sem OTP: login devolve so o mfaToken          HTTP 200 (esperado 200) -> OK
+   Contorno: mfaToken em rota protegida                        HTTP 403 (esperado 403) -> OK
+2. OTP incorreto (000000)                                      HTTP 401 (esperado 401) -> OK
+3. OTP expirado                                                HTTP 401 (esperado 401) -> OK
+4. OTP valido                                                  HTTP 200 (esperado 200) -> OK
+5. Reutilizar o mesmo OTP (replay)                             HTTP 401 (esperado 401) -> OK
+6. Codigo de recuperacao - 1o uso                              HTTP 200 (esperado 200) -> OK
+7. Mesmo codigo de recuperacao de novo                         HTTP 401 (esperado 401) -> OK
+------------------------------------------------------------
+CONTROLE 2 - PROTECAO CONTRA IDOR (A tenta usar os IDs de B)
+------------------------------------------------------------
+
+Dispositivo do usuario B: viagem 2, conteiner 2
+A: le as leituras do dispositivo B                             HTTP 403 (esperado 403|404) -> OK
+A: consulta o conteiner B                                      HTTP 403 (esperado 403|404) -> OK
+A: le os logs brutos do dispositivo B                          HTTP 403 (esperado 403|404) -> OK
+A: baixa o PDF da viagem B                                     HTTP 403 (esperado 403|404) -> OK
+A: altera a configuracao da viagem B                           HTTP 403 (esperado 403|404) -> OK
+A: comando: reprocessar IA da viagem B                         HTTP 403 (esperado 403|404) -> OK
+A: comando: sincronizar o dispositivo B                        HTTP 403 (esperado 403|404) -> OK
+A: lista de viagens NAO contem a viagem B -> OK
+B: le as leituras do PROPRIO dispositivo                       HTTP 200 (esperado 200) -> OK
+------------------------------------------------------------
+Resultado salvo em: /tmp/manual_out/CODIGO_MISSAO_manual_20261122_203424.txt
+No log do backend procure por: [CODIGO_MISSAO] OTP BLOQUEADO  e  [CODIGO_MISSAO] IDOR BLOQUEADO

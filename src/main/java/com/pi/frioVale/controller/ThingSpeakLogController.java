@@ -1,5 +1,6 @@
 package com.pi.frioVale.controller;
 
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.dto.ThingSpeakLogResponse;
 import com.pi.frioVale.dto.ThingSpeakSyncResponse;
 import com.pi.frioVale.service.ThingSpeakLogService;
@@ -15,10 +16,14 @@ import java.util.List;
 public class ThingSpeakLogController {
 
     private final ThingSpeakLogService thingSpeakLogService;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     @GetMapping
     public List<ThingSpeakLogResponse> list(@RequestParam(required = false) Long containerId) {
-        return thingSpeakLogService.list(containerId);
+        if (containerId != null) {
+            accessGuard.requireContainer(containerId); // [Seguranca - IDOR] leituras brutas do dispositivo
+        }
+        return accessGuard.onlyOwnContainers(thingSpeakLogService.list(containerId), ThingSpeakLogResponse::containerId);
     }
 
     /** Consulta os canais novamente e persiste as novas entradas. */
@@ -26,6 +31,12 @@ public class ThingSpeakLogController {
     public ThingSpeakSyncResponse sync(
             @RequestParam(required = false) Long containerId,
             @RequestParam(defaultValue = "100") int results) {
+        // [Seguranca - IDOR] comando: sincronizar um dispositivo exige ser dono; sincronizar todos, ser gestor
+        if (containerId == null) {
+            accessGuard.requireCompany("thingspeak:sync-all");
+        } else {
+            accessGuard.requireContainer(containerId);
+        }
         return new ThingSpeakSyncResponse(thingSpeakLogService.sync(containerId, results));
     }
 }

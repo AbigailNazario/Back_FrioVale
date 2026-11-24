@@ -61,6 +61,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         }
         try {
             Jwt jwt = jwtDecoder.decode(header.substring("Bearer ".length()).trim());
+            // [Seguranca - 2FA] o WebSocket tambem so aceita o token de acesso (depois do 2FA)
+            if (!JwtTokenService.TOKEN_USE_ACCESS.equals(jwt.getClaimAsString(JwtTokenService.TOKEN_USE_CLAIM))) {
+                throw new AccessDeniedException("Conclua a verificação em duas etapas");
+            }
             accessor.setUser(jwtAuthenticationConverter.convert(jwt));
         } catch (JwtException ex) {
             throw new AccessDeniedException("Token invalido ou expirado");

@@ -1,6 +1,9 @@
 package com.pi.frioVale.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.pi.frioVale.security.JwtTokenService;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -14,6 +17,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Assinatura e validacao de tokens JWT (HS256) com a chave de friovale.jwt.secret. */
 @Configuration
@@ -39,15 +44,35 @@ public class JwtConfig {
         return NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
-    /** Le o claim "role" (ex.: ROLE_COMPANY) como authority, sem prefixo adicional. */
+    /**
+     * Le o claim "role" (ex.: ROLE_COMPANY) como authority, sem prefixo adicional.
+     *
+     * [Seguranca - 2FA] Tambem adiciona uma authority com o tipo do token:
+     *  - TOKEN_ACCESS: token definitivo, emitido somente depois do segundo fator;
+     *  - TOKEN_MFA: token intermediario (senha ok, falta o codigo). Nao recebe o papel.
+     * Tokens sem a claim token_use (emitidos antes do 2FA) nao recebem nenhuma das duas e sao recusados.
+     */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-        authorities.setAuthoritiesClaimName("role");
-        authorities.setAuthorityPrefix("");
+        JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
+        roles.setAuthoritiesClaimName("role");
+        roles.setAuthorityPrefix("");
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            String use = jwt.getClaimAsString(JwtTokenService.TOKEN_USE_CLAIM);
+            if (JwtTokenService.TOKEN_USE_ACCESS.equals(use)) {
+                authorities.add(new SimpleGrantedAuthority(TOKEN_ACCESS));
+                authorities.addAll(roles.convert(jwt));
+            } else if (JwtTokenService.TOKEN_USE_MFA.equals(use)) {
+                authorities.add(new SimpleGrantedAuthority(TOKEN_MFA));
+            }
+            return authorities;
+        });
         return converter;
     }
+
+    public static final String TOKEN_ACCESS = "TOKEN_ACCESS";
+    public static final String TOKEN_MFA = "TOKEN_MFA";
 }

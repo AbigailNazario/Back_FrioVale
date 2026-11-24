@@ -14,4 +14,8 @@ public interface ImpactAlertRepository extends JpaRepository<ImpactAlert, Long> 
     List<ImpactAlert> findTop50ByOrderByCreatedAtDesc();
 
     long countByResolvedFalse();
+
+    /** [Seguranca - IDOR] Alertas abertos apenas das viagens informadas (dashboard do motorista). */
+    @org.springframework.data.jpa.repository.Query("select count(a) from ImpactAlert a where a.resolved = false and a.impactEvent.trip.id in :tripIds")
+    long countOpenByTripIds(@org.springframework.data.repository.query.Param("tripIds") java.util.Collection<Long> tripIds);
 }

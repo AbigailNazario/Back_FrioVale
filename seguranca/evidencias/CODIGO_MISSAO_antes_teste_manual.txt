@@ -1,0 +1,26 @@
+FrioVale - teste manual | codigo de missao: CODIGO_MISSAO | API: http://localhost:8080 | 2026-11-22T20:33:21-03:00
+------------------------------------------------------------
+CONTROLE 1 - AUTENTICACAO EM DOIS FATORES
+------------------------------------------------------------
+
+ANTES: o login com senha correta devolveu o TOKEN DE ACESSO (HTTP 200)
+ANTES: GET /api/trips so com a senha -> HTTP 200 (acesso liberado sem 2o fator)
+------------------------------------------------------------
+CONTROLE 2 - PROTECAO CONTRA IDOR (A tenta usar os IDs de B)
+------------------------------------------------------------
+
+[usuario B (dono do dispositivo B)] login devolveu o token de acesso so com a senha (sistema SEM 2FA)
+Dispositivo do usuario B: viagem 2, conteiner 2
+A: le as leituras do dispositivo B                             HTTP 200 (esperado 403|404) -> FALHOU
+A: consulta o conteiner B                                      HTTP 200 (esperado 403|404) -> FALHOU
+A: le os logs brutos do dispositivo B                          HTTP 200 (esperado 403|404) -> FALHOU
+./teste-manual.sh: line 24: warning: command substitution: ignored null byte in input
+A: baixa o PDF da viagem B                                     HTTP 200 (esperado 403|404) -> FALHOU
+A: altera a configuracao da viagem B                           HTTP 200 (esperado 403|404) -> FALHOU
+A: comando: reprocessar IA da viagem B                         HTTP 200 (esperado 403|404) -> FALHOU
+A: comando: sincronizar o dispositivo B                        HTTP 200 (esperado 403|404) -> FALHOU
+A: lista de viagens contem a viagem B -> VULNERAVEL
+B: le as leituras do PROPRIO dispositivo                       HTTP 200 (esperado 200) -> OK
+------------------------------------------------------------
+Resultado salvo em: /tmp/manual_out/CODIGO_MISSAO_manual_20261122_203321.txt
+No log do backend procure por: [CODIGO_MISSAO] OTP BLOQUEADO  e  [CODIGO_MISSAO] IDOR BLOQUEADO

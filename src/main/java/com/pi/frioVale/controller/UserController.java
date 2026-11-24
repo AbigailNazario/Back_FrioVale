@@ -1,5 +1,6 @@
 package com.pi.frioVale.controller;
 
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.domain.enums.Role;
 import com.pi.frioVale.dto.UserRequest;
 import com.pi.frioVale.dto.UserResponse;
@@ -19,6 +20,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     @GetMapping
     public List<UserResponse> list(@RequestParam(required = false) Role role) {
@@ -33,6 +35,8 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse create(@Valid @RequestBody UserRequest request) {
+        // [Seguranca - IDOR] contorno: sem isto o motorista criaria um gestor e passaria a ver todos os dispositivos
+        accessGuard.requireCompany("user:create");
         return userService.create(request);
     }
 }

@@ -1,5 +1,6 @@
 package com.pi.frioVale.controller;
 
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.dto.DriverStatsResponse;
 import com.pi.frioVale.service.ReportPdfService;
 import com.pi.frioVale.service.ReportService;
@@ -24,9 +25,11 @@ public class ReportController {
 
     private final ReportService reportService;
     private final ReportPdfService reportPdfService;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     @GetMapping("/drivers")
     public List<DriverStatsResponse> drivers() {
+        accessGuard.requireCompany("report:drivers"); // [Seguranca - IDOR] dados de todos os motoristas
         return reportService.driverStats();
     }
 
@@ -37,6 +40,7 @@ public class ReportController {
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) List<Long> ids) {
+        accessGuard.requireCompany("report:summary"); // [Seguranca - IDOR] recebe IDs de viagens/motoristas de qualquer um
 
         LocalDate today = LocalDate.now();
         int reportMonth = month == null ? today.getMonthValue() : month;
@@ -55,6 +59,7 @@ public class ReportController {
     /** Gera o PDF detalhado de UMA viagem: todas as leituras de temperatura e umidade com horario. */
     @GetMapping("/trips/{tripId}/pdf")
     public ResponseEntity<byte[]> tripPdf(@PathVariable Long tripId) {
+        accessGuard.requireTrip(tripId); // [Seguranca - IDOR] todas as leituras da viagem
         byte[] content = reportPdfService.generateTripDetail(tripId);
         String filename = "relatorio-viagem-fv-%03d.pdf".formatted(tripId);
 

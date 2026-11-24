@@ -1,5 +1,6 @@
 package com.pi.frioVale.controller;
 
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.dto.IaPredictionResponse;
 import com.pi.frioVale.exception.ResourceNotFoundException;
 import com.pi.frioVale.service.IaPredictionService;
@@ -20,6 +21,7 @@ public class IaPredictionController {
 
     private final IaPredictionService iaPredictionService;
     private final IaReprocessingService iaReprocessingService;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     /** Verificar se a API de IA esta online e modelos carregados. */
     @GetMapping("/health")
@@ -56,6 +58,7 @@ public class IaPredictionController {
     /** Obter predicao de IA para a ultima leitura de uma viagem. */
     @GetMapping("/trips/{tripId}/prediction")
     public ResponseEntity<Map<String, Object>> prediction(@PathVariable Long tripId) {
+        accessGuard.requireTrip(tripId); // [Seguranca - IDOR] fora do try: o catch generico nao pode engolir o bloqueio
         try {
             var resultado = iaPredictionService.analyzeLatestReading(tripId);
             if (resultado.isEmpty()) {
@@ -98,6 +101,7 @@ public class IaPredictionController {
             @RequestParam(required = false) Double variacaoTemperatura,
             @RequestParam(required = false) Double variacaoUmidade
     ) {
+        accessGuard.requireTrip(tripId); // [Seguranca - IDOR]
         try {
             Optional<IaPredictionResponse> resposta = iaPredictionService.predictIa(
                     tripId, temperatura, umidade, variacaoTemperatura, variacaoUmidade
@@ -131,6 +135,7 @@ public class IaPredictionController {
     /** Reprocessa SEMPRE a última leitura de uma viagem, garantindo análise no painel. */
     @PostMapping("/trips/{tripId}/reprocess-latest")
     public ResponseEntity<Map<String, Object>> reprocessLatest(@PathVariable Long tripId) {
+        accessGuard.requireTrip(tripId); // [Seguranca - IDOR] comando
         try {
             boolean processado = iaReprocessingService.reprocessarUltimaLeitura(tripId);
             return ResponseEntity.ok(Map.of(
@@ -148,6 +153,7 @@ public class IaPredictionController {
     /** Reprocessa leituras pendentes de IA para uma viagem (reprocessamento automático). */
     @PostMapping("/trips/{tripId}/reprocess")
     public ResponseEntity<Map<String, Object>> reprocessTrip(@PathVariable Long tripId) {
+        accessGuard.requireTrip(tripId); // [Seguranca - IDOR] comando
         try {
             int reprocessados = iaReprocessingService.reprocessarTrip(tripId);
             Map<String, Object> resposta = new LinkedHashMap<>();

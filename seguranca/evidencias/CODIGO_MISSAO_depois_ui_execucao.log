@@ -1,0 +1,24 @@
+register gestor@teste.local 201 token de acesso no corpo? False
+register motorista.a@teste.local 201 token de acesso no corpo? False
+register motorista.b@teste.local 201 token de acesso no corpo? False
+seed: containers 1 2 trips 1 2
+print: CODIGO_MISSAO_depois_otp_01_qrcode_cadastro.png
+localStorage token depois so da senha: None
+print: CODIGO_MISSAO_depois_otp_02_codigo_errado.png
+mensagem codigo errado: Código inválido, expirado ou já utilizado
+print: CODIGO_MISSAO_depois_otp_03_codigos_recuperacao.png
+print: CODIGO_MISSAO_depois_idor_01_dashboard_motorista_A.png
+navegador A -> /api/trips/2/telemetry HTTP 403 {"type":"about:blank","title":"Forbidden","status":403,"detail":"Acesso negado: este recurso não pertence ao seu usuário
+navegador A -> /api/containers/2 HTTP 403 {"type":"about:blank","title":"Forbidden","status":403,"detail":"Acesso negado: este recurso não pertence ao seu usuário
+navegador A -> /api/reports/trips/2/pdf HTTP 403 {"type":"about:blank","title":"Forbidden","status":403,"detail":"Acesso negado: este recurso não pertence ao seu usuário
+navegador A -> /api/trips/1/telemetry HTTP 200 []
+GET /api/trips visto por A (ids): [1] | viagem B = 2
+print: CODIGO_MISSAO_depois_otp_04_pede_codigo_no_login.png
+print: CODIGO_MISSAO_depois_otp_05_codigo_expirado.png
+codigo expirado: Código inválido, expirado ou já utilizado
+print: CODIGO_MISSAO_depois_otp_06_replay_negado.png
+replay: Código inválido, expirado ou já utilizado
+print: CODIGO_MISSAO_depois_otp_07_recuperacao_aceita.png
+recuperacao 1o uso -> token salvo? True
+print: CODIGO_MISSAO_depois_otp_08_recuperacao_reutilizada.png
+recuperacao reutilizada: Código inválido, expirado ou já utilizado

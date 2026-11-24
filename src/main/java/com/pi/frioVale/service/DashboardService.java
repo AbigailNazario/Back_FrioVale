@@ -1,5 +1,7 @@
 package com.pi.frioVale.service;
 
+import java.util.Set;
+import com.pi.frioVale.security.AccessGuard;
 import com.pi.frioVale.dto.AlertResponse;
 import com.pi.frioVale.dto.DashboardSummaryResponse;
 import com.pi.frioVale.dto.TripMonitorResponse;
@@ -20,11 +22,17 @@ public class DashboardService {
     private final TelemetryService telemetryService;
     private final AlertRepository alertRepository;
     private final ImpactAlertRepository impactAlertRepository;
+    private final AccessGuard accessGuard; // [Seguranca - IDOR]
 
     @Transactional(readOnly = true)
     public DashboardSummaryResponse summary() {
-        List<TripMonitorResponse> trips = tripService.findActiveMonitor();
-        List<AlertResponse> recentAlerts = telemetryService.getRecentAlerts(5);
+        // [Seguranca - IDOR] motorista recebe so as proprias viagens/alertas (antes o filtro era so no front-end)
+        boolean company = accessGuard.isCompany();
+        List<TripMonitorResponse> trips = accessGuard.onlyOwnTrips(tripService.findActiveMonitor(), TripMonitorResponse::id);
+        Set<Long> ownTrips = company ? Set.of() : accessGuard.ownTripIds();
+        List<AlertResponse> recentAlerts = company
+                ? telemetryService.getRecentAlerts(5)
+                : telemetryService.getAllAlerts().stream().filter(a -> ownTrips.contains(a.tripId())).limit(5).toList();
 
         long tripsInRange = trips.stream()
                 .filter(trip -> Boolean.TRUE.equals(trip.inRange()))
@@ -46,8 +54,13 @@ public class DashboardService {
                 .orElse(null);
         // Inclui os alertas de impacto do acelerômetro no contador do dashboard.
         // Os alertas térmicos permanecem em Alert; os de impacto ficam em ImpactAlert.
-        long activeAlerts = alertRepository.countByResolvedFalse()
-                + impactAlertRepository.countByResolvedFalse();
+        long activeAlerts;
+        if (company) {
+            activeAlerts = alertRepository.countByResolvedFalse() + impactAlertRepository.countByResolvedFalse();
+        } else {
+            activeAlerts = ownTrips.isEmpty() ? 0
+                    : alertRepository.countOpenByTripIds(ownTrips) + impactAlertRepository.countOpenByTripIds(ownTrips);
+        }
 
         return new DashboardSummaryResponse(
                 trips.size(),

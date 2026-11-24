@@ -42,4 +42,17 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findActiveAt(@Param("containerId") Long containerId,
                             @Param("moment") LocalDateTime moment,
                             Pageable pageable);
+
+    // ---------------- [Seguranca - IDOR] consultas de dono ----------------
+
+    boolean existsByIdAndDriverId(Long id, Long driverId);
+
+    boolean existsByContainerIdAndDriverIdAndStatusIn(Long containerId, Long driverId, java.util.Collection<TripStatus> statuses);
+
+    @Query("select t.id from Trip t where t.driver.id = :driverId")
+    List<Long> findIdsByDriverId(@Param("driverId") Long driverId);
+
+    @Query("select distinct t.container.id from Trip t where t.driver.id = :driverId and t.status in :statuses")
+    List<Long> findContainerIdsByDriverIdAndStatusIn(@Param("driverId") Long driverId,
+                                                     @Param("statuses") java.util.Collection<TripStatus> statuses);
 }

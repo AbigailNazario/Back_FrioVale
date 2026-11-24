@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### [Seguranca] variaveis de ambiente locais (nunca versionar)
+.env
+.env.*
+!.env.example
